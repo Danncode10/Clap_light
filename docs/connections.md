@@ -78,7 +78,7 @@ flowchart TD
 
 - This wiring deliberately shows direct point-to-point connections; no breadboard rails are used in the diagram.
 - Connect the four-pin sensor's **AO** pin to **A0**. Leave **DO** disconnected. The sketch measures short analog sound peaks instead of relying on the module's DO comparator.
-- If ordinary claps are missed, lower `CLAP_THRESHOLD` from 35 to 25. If room noise creates false claps, raise it in steps of 10. Use Serial Monitor's `peak` value to choose a threshold above quiet-room peaks but below clap peaks.
+- The default `CLAP_THRESHOLD` is 55 to reject ordinary room noise. If normal claps are missed, lower it in steps of 5; if false claps occur, raise it in steps of 10. Use Serial Monitor's `peak` value to choose a threshold above quiet-room peaks but below clap peaks.
 - Use one resistor per LED. With this wiring, the sketch sets a pin HIGH to turn its LED on and LOW to turn it off.
 - For troubleshooting, open Serial Monitor at **9600 baud**. The sketch prints the analog sound `peak`, active state, readiness, clap count, and commanded LED states every 250 ms.
-- After each accepted clap, the sketch waits 600 ms and then requires 250 ms of quiet before it accepts another clap. Clap about once per second for reliable counting.
+- The sketch accepts only a short sound burst (at most 180 ms), then waits 600 ms and requires 250 ms of quiet before accepting another one. Sustained blowing is ignored. Clap about once per second for reliable counting.

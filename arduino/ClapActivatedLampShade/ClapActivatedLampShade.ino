@@ -18,11 +18,12 @@ const int LED_ON = HIGH;
 const int LED_OFF = LOW;
 
 // A clap produces a short analog peak. Raise this value if normal room noise
-// counts as a clap; lower it (for example, to 25) if normal claps are missed.
-const int CLAP_THRESHOLD = 35;
+// counts as a clap; lower it in steps of 5 if normal claps are missed.
+const int CLAP_THRESHOLD = 55;
 const unsigned long SAMPLE_WINDOW_MS = 25;
 const unsigned long CLAP_LOCKOUT_MS = 600;
 const unsigned long SENSOR_RELEASE_MS = 250;
+const unsigned long MAX_CLAP_SOUND_MS = 180;
 const unsigned long DEBUG_INTERVAL_MS = 250;
 
 int clapCount = 0;
@@ -30,6 +31,7 @@ int lastSoundPeak = 0;
 bool previousSoundActive = false;
 unsigned long lastClapTime = 0;
 unsigned long lastInactiveTime = 0;
+unsigned long soundStartedTime = 0;
 unsigned long lastDebugTime = 0;
 bool sensorReady = false;
 
@@ -52,8 +54,14 @@ void loop() {
   lastSoundPeak = readSoundPeakToPeak();
   bool soundActive = lastSoundPeak >= CLAP_THRESHOLD;
 
-  // Count only the beginning of a loud, short sound peak.
+  // A clap is a short burst. A continuous blow remains active for too long
+  // and is discarded when it ends.
   bool clapStarted = !previousSoundActive && soundActive;
+  bool soundEnded = previousSoundActive && !soundActive;
+
+  if (clapStarted) {
+    soundStartedTime = now;
+  }
 
   // Require 250 ms of quiet before accepting another clap.
   if (!soundActive) {
@@ -66,13 +74,14 @@ void loop() {
     }
   }
 
-  // Ignore new sound for 600 ms after each accepted clap. This prevents a
-  // sustained blow or noisy pulse from quickly cycling the LEDs.
-  if (sensorReady && clapStarted && now - lastClapTime >= CLAP_LOCKOUT_MS) {
+  // Count only short bursts after the lockout period. A long blow is ignored.
+  unsigned long soundDuration = now - soundStartedTime;
+  if (sensorReady && soundEnded && soundDuration <= MAX_CLAP_SOUND_MS &&
+      now - lastClapTime >= CLAP_LOCKOUT_MS) {
     lastClapTime = now;
     sensorReady = false;
     clapCount++;
-    updateLights();
+    applyClapStage();
   }
 
   previousSoundActive = soundActive;
@@ -84,16 +93,21 @@ void loop() {
   }
 }
 
-void updateLights() {
-  if (clapCount == 1) {
-    setLEDs(LED_ON, LED_OFF, LED_OFF);
-  } else if (clapCount == 2) {
-    setLEDs(LED_ON, LED_ON, LED_OFF);
-  } else if (clapCount == 3) {
-    setLEDs(LED_ON, LED_ON, LED_ON);
-  } else {  // Fourth clap: turn every LED off and begin again at zero.
-    turnOffAllLEDs();
-    clapCount = 0;
+void applyClapStage() {
+  switch (clapCount) {
+    case 1:
+      setLEDs(LED_ON, LED_OFF, LED_OFF);  // Clap 1: LED 1 only
+      break;
+    case 2:
+      setLEDs(LED_ON, LED_ON, LED_OFF);   // Clap 2: LED 1 and LED 2
+      break;
+    case 3:
+      setLEDs(LED_ON, LED_ON, LED_ON);    // Clap 3: all three LEDs
+      break;
+    default:                               // Clap 4: all LEDs off
+      turnOffAllLEDs();
+      clapCount = 0;
+      break;
   }
 
   Serial.print("Clap count: ");
