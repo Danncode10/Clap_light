@@ -16,8 +16,8 @@ Wiring guide for the Clap-Activated Lamp Shade activity.
 | --- | --- | --- | --- |
 | Sound sensor module | VCC | Arduino 5V | Sensor power |
 | Sound sensor module | GND | Arduino GND | Common ground |
-| Sound sensor module | DO | Arduino D2 | Digital clap-detection signal |
-| Sound sensor module | AO | Not connected | Analog output is not used by this sketch |
+| Sound sensor module | DO | Not connected | Digital comparator output is not used |
+| Sound sensor module | AO | Arduino A0 | Analog sound signal used for clap detection |
 | LED 1 | Anode (+) | Arduino D9 through a 220 ohm resistor | Lights after clap 1 |
 | LED 1 | Cathode (-) | Arduino GND | Ground return |
 | LED 2 | Anode (+) | Arduino D10 through a 220 ohm resistor | Lights after clap 2 |
@@ -29,10 +29,10 @@ Wiring guide for the Clap-Activated Lamp Shade activity.
 
 | Arduino Pin | Connected Component | Purpose |
 | --- | --- | --- |
-| D2 | Sound sensor DO | Clap detection input |
-| D9 | LED 1 anode (via 220 ohm resistor) | First LED output |
-| D10 | LED 2 anode (via 220 ohm resistor) | Second LED output |
-| D11 | LED 3 anode (via 220 ohm resistor) | Third LED output |
+| A0 | Sound sensor AO | Analog clap-detection input |
+| D9 | LED 1 anode (via 220 ohm resistor) | First LED output (HIGH = on) |
+| D10 | LED 2 anode (via 220 ohm resistor) | Second LED output (HIGH = on) |
+| D11 | LED 3 anode (via 220 ohm resistor) | Third LED output (HIGH = on) |
 | 5V | Sound sensor VCC | Power supply |
 | GND | Sound sensor GND and all LED cathodes | Common ground |
 
@@ -51,8 +51,8 @@ flowchart LR
 
     Arduino -- "5V → VCC" --> SoundSensor
     Arduino -- "GND → GND" --> SoundSensor
-    SoundSensor -- "DO → D2" --> Arduino
-    SoundSensor -. "AO: not connected" .- Arduino
+    SoundSensor -. "DO: not connected" .- Arduino
+    SoundSensor -- "AO → A0" --> Arduino
 
     Arduino -- "D9" --> R1 --> LED1
     LED1 -- "Cathode → GND" --> Arduino
@@ -66,7 +66,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Clap["Clap detected on DO / D2"] --> Count["Increase clap count"]
+    Clap["Clap peak detected on AO / A0"] --> Count["Increase clap count"]
     Count --> One{"Clap count"}
     One -- "1" --> L1["Turn on LED 1"]
     One -- "2" --> L2["Turn on LED 1 and LED 2"]
@@ -77,7 +77,8 @@ flowchart TD
 ## Notes and Assumptions
 
 - This wiring deliberately shows direct point-to-point connections; no breadboard rails are used in the diagram.
-- The four-pin sensor's **AO** pin is present but unused. The program reads only **DO**.
-- The sketch assumes the sensor's DO pin goes **LOW** when it detects a clap, which is common for KY-038/KY-037-style modules. If your module reports a clap as HIGH, change `SOUND_ACTIVE_STATE` in the sketch to `HIGH`.
-- Adjust the sensor module's sensitivity potentiometer until a clap triggers one count reliably without background noise creating extra counts.
-- Use one resistor per LED, and make sure all grounds are connected to Arduino GND.
+- Connect the four-pin sensor's **AO** pin to **A0**. Leave **DO** disconnected. The sketch measures short analog sound peaks instead of relying on the module's DO comparator.
+- If ordinary claps are missed, lower `CLAP_THRESHOLD` from 35 to 25. If room noise creates false claps, raise it in steps of 10. Use Serial Monitor's `peak` value to choose a threshold above quiet-room peaks but below clap peaks.
+- Use one resistor per LED. With this wiring, the sketch sets a pin HIGH to turn its LED on and LOW to turn it off.
+- For troubleshooting, open Serial Monitor at **9600 baud**. The sketch prints the analog sound `peak`, active state, readiness, clap count, and commanded LED states every 250 ms.
+- After each accepted clap, the sketch waits 600 ms and then requires 250 ms of quiet before it accepts another clap. Clap about once per second for reliable counting.
